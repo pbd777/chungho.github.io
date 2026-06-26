@@ -13,9 +13,20 @@ import { openCCTVStream } from './cctv.js'
 
 const ANNO_API = `http://${window.location.hostname}:3001/api/annotations`
 
+const ANNO_TYPES = [
+  { value: 'default', label: '기본',   color: '#4d7eff' },
+  { value: 'cctv',    label: 'CCTV',   color: '#5dcaa5' },
+  { value: 'sensor',  label: '센서',   color: '#ef9f27' },
+  { value: 'redzone', label: '레드존', color: '#e24b4a' },
+]
+
+function typeColor(type) {
+  return ANNO_TYPES.find(t => t.value === type)?.color ?? '#4d7eff'
+}
+
 export function createAnnotationSystem(scene, camera, orbitControls, renderer, editorTC = null, editorState = null) {
 
-  const annotations = []   // { id, label, position, camPos, camTarget, element }
+  const annotations = []   // { id, label, type, title, position, camPos, camTarget, element }
 
   // ── editor의 TransformControls 재활용 ────────────────────────────────
   // annotation 선택 시 editorTC를 annotation helper에 attach
@@ -92,10 +103,11 @@ export function createAnnotationSystem(scene, camera, orbitControls, renderer, e
   document.getElementById('viewport')?.appendChild(container)
 
   // ── annotation 생성 ────────────────────────────────────────────────────
-  function createAnnotation({ id, label, title, position, camPos, camTarget, cctvId }) {
+  function createAnnotation({ id, label, type, title, position, camPos, camTarget, cctvId }) {
     const anno = {
       id:        id ?? `anno-${Date.now()}`,
       label:     label ?? `${nextIndex}`,
+      type:      type  ?? 'default',
       title:     title ?? '',
       cctvId:    cctvId ?? null,
       position:  new THREE.Vector3(...position),
@@ -116,6 +128,7 @@ export function createAnnotationSystem(scene, camera, orbitControls, renderer, e
     el.className   = 'anno-marker'
     el.dataset.id  = anno.id
     el.textContent = anno.label
+    el.style.setProperty('--anno-color', typeColor(anno.type))
     el.style.pointerEvents = 'auto'
 
     el.addEventListener('click', e => {
@@ -152,10 +165,7 @@ export function createAnnotationSystem(scene, camera, orbitControls, renderer, e
   }
 
   function renumberLabels() {
-    annotations.forEach((a, i) => {
-      a.label        = String(i + 1)
-      a.element.textContent = a.label
-    })
+    // 레이블은 사용자가 직접 편집할 수 있으므로 덮어쓰지 않음 — nextIndex만 갱신
     nextIndex = annotations.length + 1
   }
 
@@ -169,8 +179,8 @@ export function createAnnotationSystem(scene, camera, orbitControls, renderer, e
     }
     listEl.innerHTML = annotations.map(a => `
       <div class="anno-list-item${selected?.id === a.id ? ' selected' : ''}" data-id="${a.id}">
-        <div class="anno-list-badge">${a.label}</div>
-        <div class="anno-list-label">${a.title || 'Annotation ' + a.label}</div>
+        <div class="anno-list-badge" style="--anno-color:${typeColor(a.type)}">${a.label}</div>
+        <div class="anno-list-label">${a.title || a.label}</div>
       </div>
     `).join('')
 
@@ -227,17 +237,26 @@ export function createAnnotationSystem(scene, camera, orbitControls, renderer, e
     if (!anno) { panel.innerHTML = '<div class="insp-empty">annotation을 클릭해 선택하세요</div>'; return }
 
     panel.innerHTML = `
-      <div class="insp-name"># ${anno.label}</div>
+      <div class="insp-section">타입</div>
+      <div class="insp-row">
+        <select class="insp-input" id="ap-type" style="width:100%;background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 6px">
+          ${ANNO_TYPES.map(t => `<option value="${t.value}"${anno.type === t.value ? ' selected' : ''}>${t.label}</option>`).join('')}
+        </select>
+      </div>
+      <div class="insp-section">레이블</div>
+      <div class="insp-row">
+        <input class="insp-input" id="ap-label" type="text" maxlength="4" placeholder="${anno.label}" value="${anno.label}" style="width:100%">
+      </div>
+      <div class="insp-section">이름</div>
+      <div class="insp-row">
+        <input class="insp-input" id="ap-title" type="text" placeholder="Annotation ${anno.label}" value="${anno.title ?? ''}">
+      </div>
       <div class="insp-section">CCTV 연결</div>
       <div class="insp-row">
         <select class="insp-input" id="ap-cctv" style="width:100%;background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 6px">
           <option value="">— 없음 —</option>
           ${CCTVS.map(c => `<option value="${c.id}"${anno.cctvId === c.id ? ' selected' : ''}>${c.label}</option>`).join('')}
         </select>
-      </div>
-      <div class="insp-section">이름</div>
-      <div class="insp-row">
-        <input class="insp-input" id="ap-title" type="text" placeholder="Annotation ${anno.label}" value="${anno.title ?? ''}">
       </div>
       <div class="insp-section">위치</div>
       <div class="insp-row"><span class="ax x">X</span><input class="insp-input" id="ap-x" type="number" step="0.5" value="${anno.position.x.toFixed(2)}"></div>
@@ -255,13 +274,28 @@ export function createAnnotationSystem(scene, camera, orbitControls, renderer, e
       <button class="anno-delete-btn"  id="anno-delete">🗑 삭제</button>
     `
 
-    document.getElementById('ap-cctv')?.addEventListener('change', e => {
-      anno.cctvId = e.target.value || null
+    document.getElementById('ap-type')?.addEventListener('change', e => {
+      anno.type = e.target.value
+      const color = typeColor(anno.type)
+      anno.element?.style.setProperty('--anno-color', color)
+      updateList()
+    })
+
+    document.getElementById('ap-label')?.addEventListener('input', e => {
+      const val = e.target.value.trim()
+      if (!val) return
+      anno.label = val
+      if (anno.element) anno.element.textContent = val
+      updateList()
     })
 
     document.getElementById('ap-title')?.addEventListener('input', e => {
       anno.title = e.target.value.trim()
       updateList()
+    })
+
+    document.getElementById('ap-cctv')?.addEventListener('change', e => {
+      anno.cctvId = e.target.value || null
     })
 
     const bindPos = (id, axis) => {
@@ -399,6 +433,7 @@ export function createAnnotationSystem(scene, camera, orbitControls, renderer, e
     return annotations.map(a => ({
       id:        a.id,
       label:     a.label,
+      type:      a.type   ?? 'default',
       title:     a.title  ?? '',
       cctvId:    a.cctvId ?? null,
       position:  a.position.toArray(),

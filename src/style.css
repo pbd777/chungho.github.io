@@ -351,12 +351,20 @@ html,body { width:100%; height:100%; background:var(--bg); color:var(--text); fo
   filter: drop-shadow(0 2px 8px rgba(0,0,0,0.6));
 }
 
+/* ── Annotation 타입별 색상 ── */
+:root {
+  --anno-default: #4d7eff;
+  --anno-cctv:    #5dcaa5;
+  --anno-sensor:  #ef9f27;
+  --anno-redzone: #e24b4a;
+}
+
 /* ── Annotation 마커 ── */
 .anno-marker {
   position: absolute;
   width: 28px; height: 28px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--anno-color, var(--anno-default));
   color: #fff;
   font-size: 12px; font-weight: 700;
   font-family: var(--mono);
@@ -368,8 +376,8 @@ html,body { width:100%; height:100%; background:var(--bg); color:var(--text); fo
   user-select: none;
   z-index: 10;
 }
-.anno-marker:hover { width: 34px; height: 34px; background: var(--accent2) }
-.anno-marker.selected { background: var(--warn); border-color: #fff; }
+.anno-marker:hover { width: 34px; height: 34px; filter: brightness(1.2); }
+.anno-marker.selected { border-color: #fff; filter: brightness(1.3); box-shadow: 0 0 0 3px rgba(255,255,255,0.35), 0 2px 8px rgba(0,0,0,0.5); }
 
 /* ── Annotation 패널 내용 ── */
 #anno-list {
@@ -384,15 +392,14 @@ html,body { width:100%; height:100%; background:var(--bg); color:var(--text); fo
   transition: background .12s;
 }
 .anno-list-item:hover { background: rgba(77,126,255,0.15) }
-.anno-list-item.selected { background: rgba(239,159,39,0.2); color: var(--warn) }
+.anno-list-item.selected { background: rgba(255,255,255,0.08); }
 .anno-list-badge {
   width: 20px; height: 20px; border-radius: 50%;
-  background: var(--accent); color: #fff;
+  background: var(--anno-color, var(--anno-default)); color: #fff;
   font-size: 10px; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
-.anno-list-item.selected .anno-list-badge { background: var(--warn) }
 .anno-list-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .anno-list-empty { padding: 8px 4px; font-size: 11px; color: var(--text-dim); }
 
