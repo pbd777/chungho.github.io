@@ -45,6 +45,14 @@ html,body { width:100%; height:100%; background:var(--bg); color:var(--text); fo
 .title     { font-size:13px; font-weight:600; letter-spacing:.06em; }
 .top-divider{ width:1px; height:16px; background:var(--border); margin:0 4px; }
 
+#fps-counter {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  min-width: 48px;
+  text-align: right;
+}
+
 /* ── 공통 버튼 ── */
 .view-btn {
   background:transparent;

@@ -362,6 +362,23 @@ export function createScene(canvas) {
       `TGT  ${t.x.toFixed(1)}, ${t.y.toFixed(1)}, ${t.z.toFixed(1)}`
   }
 
+  // ── FPS 카운터 ──
+  const fpsEl = document.getElementById('fps-counter')
+  let _fpsFrames = 0
+  let _fpsLast   = performance.now()
+
+  function updateFPS() {
+    _fpsFrames++
+    const now = performance.now()
+    const elapsed = now - _fpsLast
+    if (elapsed >= 500) {
+      const fps = Math.round(_fpsFrames / (elapsed / 1000))
+      if (fpsEl) fpsEl.textContent = `${fps} FPS`
+      _fpsFrames = 0
+      _fpsLast   = now
+    }
+  }
+
   function animate() {
     requestAnimationFrame(animate)
     applyWASD()
@@ -369,6 +386,7 @@ export function createScene(canvas) {
     // FPS look 중에는 OrbitControls.update()를 호출하지 않음 —
     // enabled=false여도 update() 내부의 damping 소진 코드가 카메라 position을 건드리기 때문
     if (!_lookActive) controls.update()
+    updateFPS()
     updateHUD()
     if (bloom.enabled) {
       _darkenNonBloom()
