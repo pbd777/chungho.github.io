@@ -93,8 +93,13 @@ export function createScene(canvas) {
     if (e.button !== 2) return
     _lookActive = false
     canvas.style.cursor = ''
-    // controls.target을 현재 카메라 앞 방향으로 갱신 (OrbitControls 상태 복원)
+    // 우클릭을 놓을 때 WASD 상태 초기화 — 키를 누른 채 우클릭을 놓으면
+    // keyup이 발생하지 않아 wasd 플래그가 true로 남는 반전 버그 방지
+    wasd.w = wasd.a = wasd.s = wasd.d = false
     _syncTargetFromCamera()
+    // damping 잔류값 초기화 — 그대로 두면 controls.update()가 카메라를 이동시킴
+    controls._sphericalDelta.set(0, 0, 0)
+    controls._panOffset.set(0, 0, 0)
   })
   window.addEventListener('mousemove', e => {
     if (!_lookActive) return
@@ -305,7 +310,9 @@ export function createScene(canvas) {
     requestAnimationFrame(animate)
     applyWASD()
     animCallbacks.forEach(fn => fn())
-    controls.update()
+    // FPS look 중에는 OrbitControls.update()를 호출하지 않음 —
+    // enabled=false여도 update() 내부의 damping 소진 코드가 카메라 position을 건드리기 때문
+    if (!_lookActive) controls.update()
     updateHUD()
     if (bloom.enabled) {
       _darkenNonBloom()
