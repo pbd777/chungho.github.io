@@ -16,7 +16,7 @@ const FACES = [
   { id: 'left',   label: '좌',  normal: [-1,  0,  0], color: '#5a2a2a', textColor: '#f99' },
 ]
 
-export function createCameraGizmo(camera, orbitControls) {
+export function createCameraGizmo(camera, orbitControls, onSwitchProjection = null) {
   // ── DOM ──────────────────────────────────────────────────────────────────
   const wrap = document.createElement('div')
   wrap.id = 'cam-gizmo'
@@ -24,7 +24,6 @@ export function createCameraGizmo(camera, orbitControls) {
     'position:absolute',
     'top:12px',
     'width:' + SIZE + 'px',
-    'height:' + SIZE + 'px',
     'z-index:6',
     'user-select:none',
     'cursor:pointer',
@@ -43,6 +42,40 @@ export function createCameraGizmo(camera, orbitControls) {
   svg.appendChild(axisGroup)
   const faceGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g')
   svg.appendChild(faceGroup)
+
+  // ── Persp / Ortho 토글 버튼 (기즈모 아래) ──────────────────────────────
+  const projBtn = document.createElement('button')
+  projBtn.id = 'proj-toggle-btn'
+  projBtn.textContent = 'Persp'
+  projBtn.style.cssText = [
+    'display:block',
+    'margin:4px auto 0',
+    'width:56px',
+    'padding:2px 0',
+    'font-size:9px',
+    'font-family:IBM Plex Mono,monospace',
+    'color:rgba(180,200,255,0.6)',
+    'background:rgba(13,20,40,0.7)',
+    'border:1px solid rgba(90,130,255,0.25)',
+    'border-radius:3px',
+    'cursor:pointer',
+    'letter-spacing:.04em',
+    'transition:color .15s,border-color .15s',
+  ].join(';')
+  projBtn.addEventListener('mouseenter', () => {
+    projBtn.style.color = 'rgba(180,200,255,0.95)'
+    projBtn.style.borderColor = 'rgba(90,130,255,0.6)'
+  })
+  projBtn.addEventListener('mouseleave', () => {
+    projBtn.style.color = 'rgba(180,200,255,0.6)'
+    projBtn.style.borderColor = 'rgba(90,130,255,0.25)'
+  })
+  projBtn.addEventListener('click', () => {
+    const toOrtho = projBtn.textContent === 'Persp'
+    projBtn.textContent = toOrtho ? 'Ortho' : 'Persp'
+    onSwitchProjection?.(toOrtho)
+  })
+  wrap.appendChild(projBtn)
 
   document.getElementById('viewport')?.appendChild(wrap)
 
@@ -287,7 +320,6 @@ export function createCameraGizmo(camera, orbitControls) {
       orbitControls._panOffset.set(0, 0, 0)
       orbitControls.target.copy(camAnim.target)
       orbitControls.enabled = true
-      orbitControls.update()
 
       camAnim = null
     }

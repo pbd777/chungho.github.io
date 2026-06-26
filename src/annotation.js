@@ -76,7 +76,6 @@ export function createAnnotationSystem(scene, camera, orbitControls, renderer, e
       orbitControls._sphericalDelta.set(0, 0, 0)
       orbitControls._panOffset.set(0, 0, 0)
       orbitControls.enabled = true
-      orbitControls.update()
 
       camAnim = null
     }
@@ -286,7 +285,17 @@ export function createAnnotationSystem(scene, camera, orbitControls, renderer, e
     document.getElementById('anno-capture')?.addEventListener('click', () => {
       anno.camPos    = camera.position.clone()
       anno.camTarget = orbitControls.target.clone()
-      updatePanel(anno)
+      // updatePanel 전체 재렌더 없이 표시만 갱신 — 재렌더 시 input 이벤트가 발생해
+      // bindPos의 camTarget.copy(position)이 방금 저장한 camTarget을 덮어쓰는 버그 방지
+      const camDiv = panel.querySelector('.insp-row:nth-of-type(1)')
+      const tgtDiv = panel.querySelector('.insp-row:nth-of-type(2)')
+      if (camDiv) camDiv.style.display = ''  // 표시 유지 (내용 갱신은 아래서)
+      panel.querySelectorAll('.insp-row').forEach(el => {
+        if (el.textContent.startsWith('CAM'))
+          el.textContent = `CAM (${anno.camPos.x.toFixed(1)}, ${anno.camPos.y.toFixed(1)}, ${anno.camPos.z.toFixed(1)})`
+        if (el.textContent.startsWith('TGT'))
+          el.textContent = `TGT (${anno.camTarget.x.toFixed(1)}, ${anno.camTarget.y.toFixed(1)}, ${anno.camTarget.z.toFixed(1)})`
+      })
       showToast('현재 시점 저장됨', 'ok')
     })
 
@@ -432,5 +441,6 @@ export function createAnnotationSystem(scene, camera, orbitControls, renderer, e
     deserialize,
     get addMode() { return addMode },
     get list() { return annotations },
+    setCamera(cam) { camera = cam },
   }
 }

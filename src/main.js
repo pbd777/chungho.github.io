@@ -11,9 +11,9 @@ import { createFloatPanel } from './float-panel.js'
 
 const canvas   = document.getElementById('c')
 const sceneRef = createScene(canvas)
-const { scene, camera, renderer, controls, addAnimCallback, setCam, setCenter, assignBloomLayer, focusObject } = sceneRef
+const { scene, renderer, controls, addAnimCallback, setCam, setCenter, assignBloomLayer, focusObject, switchProjection } = sceneRef
 
-window.__ivas = { scene, camera, renderer, controls, sceneRef, THREE }
+window.__ivas = { scene, renderer, controls, sceneRef, THREE, get camera() { return sceneRef.camera } }
 
 // ── 플로팅 패널 생성 ──────────────────────────────────────────────────────
 
@@ -73,14 +73,20 @@ annoPanel.setVisible(false)
 // ── Debug GUI ──────────────────────────────────────────────────────────────
 createDebugGUI(scene, sceneRef)
 
-// ── 카메라 기즈모 ──────────────────────────────────────────────────────────
-const camGizmo = createCameraGizmo(camera, controls)
-
 // ── 에디터 초기화 ──────────────────────────────────────────────────────────
-const editor = createEditor(scene, camera, renderer, controls)
+const editor = createEditor(scene, sceneRef.camera, renderer, controls)
 
 // ── Annotation 시스템 ─────────────────────────────────────────────────────
-const annoSystem = createAnnotationSystem(scene, camera, controls, renderer, editor.tc, editor.editorState)
+const annoSystem = createAnnotationSystem(scene, sceneRef.camera, controls, renderer, editor.tc, editor.editorState)
+
+// ── 카메라 기즈모 (전환 콜백 포함) ─────────────────────────────────────────
+function onSwitchProjection(toOrtho) {
+  switchProjection(toOrtho)
+  const cam = sceneRef.camera
+  editor.setCamera(cam)
+  annoSystem.setCamera(cam)
+}
+const camGizmo = createCameraGizmo(sceneRef.camera, controls, onSwitchProjection)
 window.__ivas.annoSystem = annoSystem
 
 editor.setOnSelectObject(() => annoSystem.deselectAnnotation())
@@ -113,7 +119,7 @@ loadHDR(renderer, scene, '/models/base.hdr')
           .slice()
         roots.forEach(fbxRoot => editor.wrapWithPivot(fbxRoot))
 
-        initCCTVInteraction(scene, camera, renderer, [], editor)
+        initCCTVInteraction(scene, sceneRef.camera, renderer, [], editor)
 
         const box = new THREE.Box3()
         scene.children.forEach(c => { if (c.userData?.isPivot) box.expandByObject(c) })

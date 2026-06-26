@@ -24,8 +24,15 @@ export function createScene(canvas) {
   scene.fog = null
 
   // ── Camera ──
-  const camera = new THREE.PerspectiveCamera(55, 1, 0.5, 60000)
-  camera.position.set(20, 14, 20)
+  const perspCamera = new THREE.PerspectiveCamera(55, 1, 0.5, 60000)
+  perspCamera.position.set(20, 14, 20)
+
+  // 오소그래픽 카메라는 viewport 크기 기반으로 초기화 — resize()에서 갱신
+  const orthoCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.5, 60000)
+  orthoCamera.position.set(20, 14, 20)
+
+  let _isOrtho = false
+  let camera = perspCamera   // 항상 현재 활성 카메라를 가리키는 참조
 
   // ── Lights ──
   // 1. 전체 ambient — 크게 높임
@@ -59,12 +66,14 @@ export function createScene(canvas) {
 
   // ── Controls (Unity Scene View style) ──
   // 중클릭=패닝, 좌클릭=없음, 우클릭=FPS look (OrbitControls에서 분리 처리)
-  const controls = new OrbitControls(camera, canvas)
+  const controls = new OrbitControls(perspCamera, canvas)
   controls.enableDamping = true
   controls.dampingFactor = 0.08
   controls.minDistance = 3
   controls.maxDistance = 2000
-  controls.maxPolarAngle = Math.PI / 2 - 0.02
+  // maxPolarAngle 제거 — FPS look 모드에서 target이 하늘에 위치할 때
+  // OrbitControls가 polar 제한을 집행하며 카메라 position을 위로 밀어올리는 버그 방지
+  // 지면 아래 진입은 FPS look의 pitch 클램핑(-π/2 ~ π/2)으로 이미 차단됨
   controls.target.set(0, 0, 0)
   controls.mouseButtons = {
     LEFT:   null,
@@ -108,7 +117,8 @@ export function createScene(canvas) {
     _euler.x -= e.movementY * sens
     _euler.x = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, _euler.x))
     camera.quaternion.setFromEuler(_euler)
-    _syncTargetFromCamera()
+    // 드래그 중에는 controls.target을 건드리지 않음 —
+    // target 갱신 시 OrbitControls 내부 spherical이 어긋나 다음 update()에서 position이 튐
   })
 
   const _lookDir = new THREE.Vector3()
@@ -123,8 +133,9 @@ export function createScene(canvas) {
   const initH = vp.clientHeight || 600
 
   renderer.setSize(initW, initH)
-  camera.aspect = initW / initH
-  camera.updateProjectionMatrix()
+  perspCamera.aspect = initW / initH
+  perspCamera.updateProjectionMatrix()
+  _updateOrthoSize(initW, initH)
 
   // ── Post-processing: N8AOPass + EffectComposer ──
   // N8AOPass는 RenderPass를 겸함 — EffectComposer에 첫 번째 pass로 추가
@@ -223,6 +234,51 @@ export function createScene(canvas) {
     })
   }
 
+  // ── 오소그래픽 frustum 크기 계산 ──
+  // target까지의 거리를 FOV 기반으로 오소 크기로 환산해 원근/오소 전환 시 씬 크기가 동일하게 보임
+  function _updateOrthoSize(w, h) {
+    const dist = camera.position.distanceTo(controls.target)
+    const halfH = dist * Math.tan(THREE.MathUtils.degToRad(perspCamera.fov / 2))
+    const halfW = halfH * (w / h)
+    orthoCamera.left   = -halfW
+    orthoCamera.right  =  halfW
+    orthoCamera.top    =  halfH
+    orthoCamera.bottom = -halfH
+    orthoCamera.updateProjectionMatrix()
+  }
+
+  // ── 퍼스펙티브 ↔ 오소그래픽 전환 ──
+  function switchProjection(toOrtho) {
+    if (toOrtho === _isOrtho) return
+    _isOrtho = toOrtho
+
+    const w = vp.clientWidth
+    const h = vp.clientHeight
+
+    if (_isOrtho) {
+      // persp → ortho: 현재 카메라 위치·방향을 ortho에 복사 후 frustum 맞춤
+      orthoCamera.position.copy(perspCamera.position)
+      orthoCamera.quaternion.copy(perspCamera.quaternion)
+      _updateOrthoSize(w, h)
+      camera = orthoCamera
+    } else {
+      // ortho → persp: ortho 위치·방향을 persp에 복사
+      perspCamera.position.copy(orthoCamera.position)
+      perspCamera.quaternion.copy(orthoCamera.quaternion)
+      perspCamera.aspect = w / h
+      perspCamera.updateProjectionMatrix()
+      camera = perspCamera
+    }
+
+    // OrbitControls·N8AO·bloomRenderPass 카메라 교체
+    controls.object = camera
+    n8ao.camera = camera
+    bloomRenderPass.camera = camera
+    controls._sphericalDelta.set(0, 0, 0)
+    controls._panOffset.set(0, 0, 0)
+    controls.update()
+  }
+
   // ── Resize ──
   function resize() {
     const w = vp.clientWidth
@@ -233,15 +289,15 @@ export function createScene(canvas) {
     bloomComposer.setSize(w, h)
     bloom.resolution.set(w, h)
     smaa.setSize(w, h)
-    camera.aspect = w / h
-    camera.updateProjectionMatrix()
+    perspCamera.aspect = w / h
+    perspCamera.updateProjectionMatrix()
+    if (_isOrtho) _updateOrthoSize(w, h)
   }
-  window.addEventListener('resize', resize)
   window.addEventListener('resize', resize)
 
   // ── WASD 카메라 이동 (Unity Fly mode: 우클릭 누른 상태, 카메라 시점 기준) ──
   const wasd = { w: false, a: false, s: false, d: false }
-  const WASD_SPEED = 1.5
+  const WASD_SPEED = 0.2
 
   window.addEventListener('keydown', e => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
@@ -320,7 +376,7 @@ export function createScene(canvas) {
       _restoreMat()
     }
     if (n8ao.enabled) composer.render()
-    else renderer.render(scene, camera)
+    else renderer.render(scene, camera)   // camera는 항상 현재 활성 카메라
   }
   animate()
 
@@ -368,5 +424,12 @@ export function createScene(canvas) {
     _syncEulerFromCamera()
   }
 
-  return { scene, camera, renderer, composer, n8ao, bloom, assignBloomLayer, controls, addAnimCallback, setCam, setCenter, focusObject }
+  return {
+    scene, renderer, composer, n8ao, bloom,
+    assignBloomLayer, controls,
+    addAnimCallback, setCam, setCenter, focusObject,
+    switchProjection,
+    get camera() { return camera },
+    get isOrtho() { return _isOrtho },
+  }
 }

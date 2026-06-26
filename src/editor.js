@@ -330,7 +330,12 @@ export function createEditor(scene, camera, renderer, orbitControls) {
   let onSelectObject = null
   function setOnSelectObject(fn) { onSelectObject = fn }
 
+  function setCamera(cam) {
+    camera = cam
+    tc.camera = cam
+  }
+
   return { tc, wrapWithPivot, saveLayout, loadLayout, setActive, editorState, setOnSelectObject,
-           deselectObject, updateModeUI, toggleSnap, showToast, undo,
+           deselectObject, updateModeUI, toggleSnap, showToast, undo, setCamera,
            getSelected: () => selected }
 }
