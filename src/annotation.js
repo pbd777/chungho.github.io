@@ -266,10 +266,13 @@ export function createAnnotationSystem(scene, camera, orbitControls, renderer, e
     })
 
     const bindPos = (id, axis) => {
-      document.getElementById(id)?.addEventListener('change', e => {
-        anno.position[axis] = parseFloat(e.target.value)
-        anno.camTarget.copy(anno.position)  // target도 위치 따라 업데이트
-        updatePanel(anno)
+      document.getElementById(id)?.addEventListener('input', e => {
+        const v = parseFloat(e.target.value)
+        if (isNaN(v)) return
+        anno.position[axis] = v
+        // TransformControls 헬퍼와 camTarget을 새 위치에 동기화
+        if (tcHelper && tcAnno === anno) tcHelper.position.copy(anno.position)
+        anno.camTarget.copy(anno.position)
       })
     }
     bindPos('ap-x', 'x')
