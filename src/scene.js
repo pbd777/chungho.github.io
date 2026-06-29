@@ -80,6 +80,13 @@ export function createScene(canvas) {
     MIDDLE: THREE.MOUSE.PAN,
     RIGHT:  null,   // 우클릭은 아래 FPS look 핸들러가 직접 처리
   }
+  // 모바일 터치: 1손가락=회전, 2손가락=줌/팬
+  controls.touches = {
+    ONE:   THREE.TOUCH.ROTATE,
+    TWO:   THREE.TOUCH.DOLLY_PAN,
+  }
+  controls.rotateSpeed = 0.35
+  controls.zoomSpeed   = 0.6
 
   // ── FPS Look (우클릭 드래그 = 카메라 자체 회전) ──
   // yaw(좌우), pitch(상하)를 직접 관리, controls.target을 카메라 앞으로 갱신

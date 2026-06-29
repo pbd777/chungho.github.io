@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js'
 
-const API = `http://${window.location.hostname}:3001/api/layout`
+const API = '/api/layout'
 const UNDO_LIMIT = 20
 
 export function createEditor(scene, camera, renderer, orbitControls) {

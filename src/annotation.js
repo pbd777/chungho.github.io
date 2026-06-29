@@ -9,9 +9,9 @@
  */
 import * as THREE from 'three'
 import { CCTVS } from './cctv-config.js'
-import { openCCTVStream } from './cctv.js'
+import { openCCTVStream, closeCCTVPip, switchCCTVPip } from './cctv.js'
 
-const ANNO_API = `http://${window.location.hostname}:3001/api/annotations`
+const ANNO_API = '/api/annotations'
 
 const ANNO_TYPES = [
   { value: 'default', label: '기본',   color: '#4d7eff' },
@@ -78,14 +78,31 @@ export function createAnnotationSystem(scene, camera, orbitControls, renderer, e
     if (camAnim.t >= 1) {
       // 정확한 최종값으로 스냅
       camera.position.copy(camAnim.toPos)
-      orbitControls.target.copy(camAnim.toTgt)
       camera.up.set(0, 1, 0)
-      orbitControls.object.up.set(0, 1, 0)  // OrbitControls up 동기화
+      orbitControls.object.up.set(0, 1, 0)
       camera.lookAt(camAnim.toTgt)
+
+      // OrbitControls target을 카메라가 바라보는 방향의 10유닛 앞에 고정.
+      // camTarget이 corrupted(수십~수백 유닛)된 경우 회전 반경이 커져서
+      // 터치 시 시점이 확 돌아가는 버그를 방지.
+      // 모든 포인트가 동일한 회전 반경을 가지므로 터치 감도가 균일해짐.
+      const lookDir = new THREE.Vector3()
+      camera.getWorldDirection(lookDir)
+      orbitControls.target.copy(camAnim.toPos).addScaledVector(lookDir, 10)
 
       // sphericalDelta 잔류 제거 후 재활성화
       orbitControls._sphericalDelta.set(0, 0, 0)
       orbitControls._panOffset.set(0, 0, 0)
+      // 애니메이션 중 터치가 시작됐을 경우 OrbitControls 내부 상태가 오염됨:
+      // _rotateStart가 (0,0)인 채로 _rotateEnd가 현재 터치 좌표로 설정되면
+      // 첫 이동 델타가 화면 전체 크기만큼 계산되어 시점이 확 돌아가는 버그 발생.
+      // _pointers 배열·positions 맵·state를 비워 clean state로 복구.
+      orbitControls._pointers.length = 0
+      orbitControls._pointerPositions = {}
+      orbitControls.state = -1   // _STATE.NONE
+      orbitControls._rotateStart.set(0, 0)
+      orbitControls._rotateEnd.set(0, 0)
+      orbitControls._rotateDelta.set(0, 0)
       orbitControls.enabled = true
 
       camAnim = null
@@ -134,13 +151,7 @@ export function createAnnotationSystem(scene, camera, orbitControls, renderer, e
     el.addEventListener('click', e => {
       e.stopPropagation()
       if (addMode) return
-      if (!editorState?.active) {
-        animateCameraTo(anno.camPos, anno.camTarget)
-        if (anno.cctvId) {
-          const cctv = CCTVS.find(c => c.id === anno.cctvId)
-          if (cctv) openCCTVStream(cctv, 'pip')
-        }
-      }
+      if (!editorState?.active) animateCameraTo(anno.camPos, anno.camTarget)
       selectAnnotation(anno)
     })
 
@@ -189,13 +200,7 @@ export function createAnnotationSystem(scene, camera, orbitControls, renderer, e
       el.addEventListener('click', () => {
         const anno = annotations.find(a => a.id === el.dataset.id)
         if (!anno) return
-        if (!editorState?.active) {
-          animateCameraTo(anno.camPos, anno.camTarget)
-          if (anno.cctvId) {
-            const cctv = CCTVS.find(c => c.id === anno.cctvId)
-            if (cctv) openCCTVStream(cctv, 'pip')
-          }
-        }
+        if (!editorState?.active) animateCameraTo(anno.camPos, anno.camTarget)
         selectAnnotation(anno)
       })
     })
@@ -208,6 +213,17 @@ export function createAnnotationSystem(scene, camera, orbitControls, renderer, e
     selected = anno
     updatePanel(anno)
     updateList()
+
+    // 뷰어 모드에서만 CCTV PIP 제어
+    // switchCCTVPip: 기존 PIP를 닫고 새 CCTV를 열어 포인트 전환 시 영상이 교체됨
+    if (!editorState?.active) {
+      if (anno.cctvId) {
+        const cctv = CCTVS.find(c => c.id === anno.cctvId)
+        if (cctv) switchCCTVPip(cctv)
+      } else {
+        closeCCTVPip()
+      }
+    }
 
     // 에디터 모드일 때만 기즈모 attach
     if (editorTC) editorTC.detach()

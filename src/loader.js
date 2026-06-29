@@ -75,7 +75,7 @@ function loadModel(url) {
 export async function loadBuildings(scene, onStatus) {
   // 서버에서 모델 파일 목록을 가져와 BUILDINGS 동적 구성
   try {
-    const res = await fetch(`http://${window.location.hostname}:3001/api/models`)
+    const res = await fetch('/api/models')
     const data = await res.json()
     BUILDINGS = data.files.map(f => ({
       id:    f.name.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_'),

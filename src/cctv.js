@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { CCTVS } from './cctv-config.js'
 
-const API_BASE = () => `http://${window.location.hostname}:3001`
+const API_BASE = () => ''  // Vite proxy가 /api, /hls를 Express(3001)로 포워딩
 
 // ── CCTV 3D 아이콘 생성 ────────────────────────────────────────────────
 export function createCCTVObjects(scene) {
@@ -106,6 +106,24 @@ export function initCCTVInteraction(scene, camera, renderer, cctvObjects, editor
   window.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal() })
 
   return { closeModal }
+}
+
+// ── PIP 닫기 ──────────────────────────────────────────────────────────────
+export function closeCCTVPip() {
+  const pip = document.getElementById('cctv-pip')
+  if (!pip) return
+  const video = pip.querySelector('video')
+  if (video?._hls) { video._hls.destroy() }
+  if (pip.dataset.cctvId) {
+    fetch(`${API_BASE()}/api/cctv/${pip.dataset.cctvId}/stop`, { method: 'POST' }).catch(() => {})
+  }
+  pip.remove()
+}
+
+// ── PIP 강제 교체 (annotation 선택 시 사용 — 토글 없이 항상 열기) ──────────
+export function switchCCTVPip(cctv) {
+  closeCCTVPip()           // 기존 PIP가 있으면 먼저 닫고
+  openCCTVStream(cctv, 'pip')  // 새 CCTV로 열기
 }
 
 // ── 공용 스트림 열기 (모달 or PIP) ────────────────────────────────────────
