@@ -277,31 +277,15 @@ export function createEditor(scene, camera, renderer, orbitControls) {
       data.ok
         ? showToast(`저장 완료 (${new Date(data.savedAt).toLocaleTimeString('ko-KR')})`, 'ok')
         : showToast('저장 실패', 'danger')
-    } catch {
-      showToast('저장 불가 — 정적 배포 환경에서는 저장이 지원되지 않습니다', 'warn')
-    }
+    } catch { showToast('서버 연결 실패 — npm start 확인', 'danger') }
   }
 
   // ── 불러오기 ─────────────────────────────────────────────────────────
   async function loadLayout() {
-    // 1순위: Express 서버 API
-    // 2순위: 정적 배포용 /layout.json (빌드 시 public/에 복사됨)
-    let data = null
     try {
-      const res = await fetch(API)
-      if (res.ok) data = await res.json()
-    } catch { /* 서버 미실행 */ }
-
-    if (!data) {
-      try {
-        const res = await fetch('/layout.json')
-        if (res.ok) data = await res.json()
-      } catch { /* 정적 파일도 없음 */ }
-    }
-
-    if (!data) return null
-
-    if (data.objects?.length) {
+      const res  = await fetch(API)
+      const data = await res.json()
+      if (data.objects?.length) {
       data.objects.forEach(item => {
         const pivot = scene.children.find(c =>
           c.userData?.isPivot &&
@@ -312,10 +296,11 @@ export function createEditor(scene, camera, renderer, orbitControls) {
         pivot.rotation.set(...item.rotation)
         pivot.scale.fromArray(item.scale)
       })
-      if (selected) updateInspector(selected)
-      showToast(`불러오기 완료 — ${data.objects.length}개`, 'ok')
-    }
-    return data
+        if (selected) updateInspector(selected)
+        showToast(`불러오기 완료 — ${data.objects.length}개`, 'ok')
+      }
+      return data
+    } catch { /* 서버 미실행 시 무시 */ }
   }
 
   // ── 토스트 ───────────────────────────────────────────────────────────

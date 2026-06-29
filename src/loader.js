@@ -74,10 +74,8 @@ function loadModel(url) {
 
 export async function loadBuildings(scene, onStatus) {
   // 서버에서 모델 파일 목록을 가져와 BUILDINGS 동적 구성
-  // GitHub Pages 등 정적 배포 환경에서는 빌드 타임에 주입된 __STATIC_MODELS__ 사용
   try {
     const res = await fetch(`http://${window.location.hostname}:3001/api/models`)
-    if (!res.ok) throw new Error(res.statusText)
     const data = await res.json()
     BUILDINGS = data.files.map(f => ({
       id:    f.name.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_'),
@@ -85,21 +83,9 @@ export async function loadBuildings(scene, onStatus) {
       file:  f.name,
       color: 0x1a2e50,
     }))
-  } catch {
-    // 정적 배포 환경: 빌드 타임에 vite.config.js가 주입한 목록 사용
-    const staticFiles = (typeof __STATIC_MODELS__ !== 'undefined') ? __STATIC_MODELS__ : []
-    if (staticFiles.length > 0) {
-      console.info('[IVAS] 정적 모델 목록 사용:', staticFiles.map(f => f.name))
-      BUILDINGS = staticFiles.map(f => ({
-        id:    f.name.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_'),
-        label: f.name.replace(/\.[^.]+$/, ''),
-        file:  f.name,
-        color: 0x1a2e50,
-      }))
-    } else {
-      console.warn('[IVAS] 모델 목록 없음 — 빈 씬으로 진행')
-      BUILDINGS = []
-    }
+  } catch (err) {
+    console.warn('[IVAS] 모델 목록 fetch 실패 — 빈 목록으로 진행', err)
+    BUILDINGS = []
   }
 
   const loaded = []
