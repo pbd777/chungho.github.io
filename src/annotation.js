@@ -303,9 +303,9 @@ export function createAnnotationSystem(scene, camera, orbitControls, renderer, e
         const v = parseFloat(e.target.value)
         if (isNaN(v)) return
         anno.position[axis] = v
-        // TransformControls 헬퍼와 camTarget을 새 위치에 동기화
+        // TransformControls 헬퍼 위치만 동기화 — camTarget은 건드리지 않음
+        // (camTarget은 "현재 시점 저장" 버튼으로만 변경)
         if (tcHelper && tcAnno === anno) tcHelper.position.copy(anno.position)
-        anno.camTarget.copy(anno.position)
       })
     }
     bindPos('ap-x', 'x')
